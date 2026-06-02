@@ -1,0 +1,21 @@
+{
+  "name": "hexgl",
+  "version": "2.0.0",
+  "description": "HexGL — futuristic WebGL racing game, modernized on Three.js + Vite + TypeScript",
+  "type": "module",
+  "license": "MIT",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "convert:geo": "node scripts/convert-geometry.mjs"
+  },
+  "dependencies": {
+    "three": "^0.160.0"
+  },
+  "devDependencies": {
+    "@types/three": "^0.160.0",
+    "typescript": "^5.4.0",
+    "vite": "^5.2.0"
+  }
+}
