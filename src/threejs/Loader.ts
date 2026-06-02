@@ -81,7 +81,7 @@ export class Loader {
     for (const g in data.geometries) this.loadGeometry(g, data.geometries[g]);
     for (const a in data.analysers) this.loadAnalyser(a, data.analysers[a]);
     for (const i in data.images) this.loadImage(i, data.images[i]);
-    for (const s in data.sounds) this.loadSound(data.sounds[s].src, s, data.sounds[s].loop);
+    for (const s in data.sounds) this.loadSound(data.sounds[s].src, s, data.sounds[s].loop, data.sounds[s].usePanner);
 
     this.progressCallback.call(this, this.progress);
   }
@@ -167,11 +167,11 @@ export class Loader {
     this.data.images[name] = e;
   }
 
-  private loadSound(src: string, name: string, loop: boolean): void {
+  private loadSound(src: string, name: string, loop: boolean, usePanner?: boolean): void {
     this.updateState('sounds', name, false);
     Audio.addSound(src, name, loop, () => {
       this.updateState('sounds', name, true);
-    });
+    }, usePanner);
     this.data.sounds[name] = {
       play: () => Audio.play(name),
       stop: () => Audio.stop(name),

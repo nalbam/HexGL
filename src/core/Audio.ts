@@ -15,8 +15,10 @@ interface AudioModule {
   sounds: Record<string, any>;
   _ctx: AudioContext | null;
   _panner?: PannerNode;
+  _unlocked: boolean;
   posMultipler: number;
   init(): void;
+  unlock(): void;
   addSound(src: string, id: string, loop: boolean, callback: () => void, usePanner?: boolean): void;
   play(id: string): void;
   stop(id: string): void;
@@ -28,6 +30,7 @@ interface AudioModule {
 export const Audio: AudioModule = {
   sounds: {},
   _ctx: null,
+  _unlocked: false,
   posMultipler: 1.5,
 
   init() {
@@ -40,6 +43,23 @@ export const Audio: AudioModule = {
       Audio._ctx = null;
     }
     Audio.posMultipler = 1.5;
+
+    const unlock = () => Audio.unlock();
+    document.addEventListener('pointerdown', unlock, false);
+    document.addEventListener('keydown', unlock, false);
+  },
+
+  unlock() {
+    const ctx = Audio._ctx;
+    if (!ctx || Audio._unlocked) return;
+
+    if (ctx.state === 'suspended') {
+      ctx.resume().then(() => {
+        Audio._unlocked = true;
+      }).catch(() => {});
+    } else {
+      Audio._unlocked = true;
+    }
   },
 
   addSound(src, id, loop, callback, usePanner) {
@@ -95,19 +115,29 @@ export const Audio: AudioModule = {
   play(id) {
     const ctx = Audio._ctx;
     if (ctx) {
-      const sound = ctx.createBufferSource();
-      sound.connect(Audio.sounds[id].gainNode);
-      sound.buffer = Audio.sounds[id].src;
-      sound.loop = Audio.sounds[id].loop;
-      Audio.sounds[id].gainNode.gain.value = 1;
-      Audio.sounds[id].bufferNode = sound;
-      (sound as any).start ? sound.start(0) : (sound as any).noteOn(0);
+      if (!Audio._unlocked && ctx.state === 'suspended') return;
+
+      const playSound = () => {
+        const sound = ctx.createBufferSource();
+        sound.connect(Audio.sounds[id].gainNode);
+        sound.buffer = Audio.sounds[id].src;
+        sound.loop = Audio.sounds[id].loop;
+        Audio.sounds[id].gainNode.gain.value = 1;
+        Audio.sounds[id].bufferNode = sound;
+        (sound as any).start ? sound.start(0) : (sound as any).noteOn(0);
+      };
+
+      if (ctx.state === 'suspended') {
+        ctx.resume().then(playSound).catch(() => {});
+      } else {
+        playSound();
+      }
     } else {
       if (Audio.sounds[id].currentTime > 0) {
         Audio.sounds[id].pause();
         Audio.sounds[id].currentTime = 0;
       }
-      Audio.sounds[id].play();
+      Audio.sounds[id].play().catch(() => {});
     }
   },
 
