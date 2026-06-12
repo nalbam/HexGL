@@ -26,7 +26,7 @@ export class ImageDataLoader {
       const canvas = document.createElement('canvas');
       canvas.width = this.image!.width;
       canvas.height = this.image!.height;
-      const context = canvas.getContext('2d')!;
+      const context = canvas.getContext('2d', { willReadFrequently: true })!;
       context.drawImage(this.image!, 0, 0);
       this.pixels = context.getImageData(0, 0, canvas.width, canvas.height);
       this.loaded = true;

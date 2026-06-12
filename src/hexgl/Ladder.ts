@@ -32,7 +32,7 @@ export const Ladder: {
 
   displayLadder(id, track, mode, num) {
     const d = document.getElementById(id);
-    if (d == undefined || Ladder.global[track] == undefined || !Ladder.global[track][mode] == undefined) {
+    if (d == undefined || Ladder.global[track] == undefined || Ladder.global[track][mode] == undefined) {
       console.warn('Undefined ladder.');
       return;
     }

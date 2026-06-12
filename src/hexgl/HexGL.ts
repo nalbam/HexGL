@@ -8,7 +8,7 @@ import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { BloomPass } from 'three/addons/postprocessing/BloomPass.js';
-import { CopyShader } from 'three/addons/shaders/CopyShader.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 
 import { RenderManager } from '../threejs/RenderManager';
 import { Shaders } from '../threejs/Shaders';
@@ -269,13 +269,15 @@ export class HexGL {
 
     if (this.quality > 2) {
       renderer.shadowMap.enabled = true;
-      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      renderer.shadowMap.type = THREE.PCFShadowMap;
     }
     renderer.outputColorSpace = THREE.SRGBColorSpace;
 
     renderer.autoClear = false;
     renderer.sortObjects = false;
-    renderer.setSize(this.width, this.height);
+    // updateStyle=false: the page's `canvas { width: 100% }` rule scales the
+    // (possibly half-resolution, quality 0) buffer to the full viewport.
+    renderer.setSize(this.width, this.height, false);
     renderer.domElement.style.position = 'relative';
 
     this.containers.main.appendChild(renderer.domElement);
@@ -298,28 +300,11 @@ export class HexGL {
   }
 
   initGameComposer(): void {
-    const renderTarget = new THREE.WebGLRenderTarget(this.width, this.height, {
-      minFilter: THREE.LinearFilter,
-      magFilter: THREE.LinearFilter,
-      stencilBuffer: false,
-    });
-
     const renderSky = new RenderPass(this.manager.get('sky').scene, this.manager.get('sky').camera);
     const renderModel = new RenderPass(this.manager.get('game').scene, this.manager.get('game').camera);
     renderModel.clear = false;
 
-    this.composers.game = new EffectComposer(this.renderer, renderTarget);
-
-    const effectScreen = new ShaderPass(CopyShader);
-    effectScreen.renderToScreen = true;
-
-    const effectHex = new ShaderPass(Shaders.hexvignette as any);
-    effectHex.uniforms['size'].value = 512.0 * (this.width / 1633);
-    effectHex.uniforms['rx'].value = this.width;
-    effectHex.uniforms['ry'].value = this.height;
-    effectHex.uniforms['tHex'].value = this.track.lib.get('textures', 'hex');
-    effectHex.uniforms['color'].value = this.extras.vignetteColor;
-    effectHex.renderToScreen = true;
+    this.composers.game = new EffectComposer(this.renderer);
 
     this.composers.game.addPass(renderSky);
     this.composers.game.addPass(renderModel);
@@ -330,8 +315,18 @@ export class HexGL {
       this.extras.bloom = effectBloom;
     }
 
-    if (this.quality > 0) this.composers.game.addPass(effectHex);
-    else this.composers.game.addPass(effectScreen);
+    if (this.quality > 0) {
+      const effectHex = new ShaderPass(Shaders.hexvignette as any);
+      effectHex.uniforms['size'].value = 512.0 * (this.width / 1633);
+      effectHex.uniforms['rx'].value = this.width;
+      effectHex.uniforms['ry'].value = this.height;
+      effectHex.uniforms['tHex'].value = this.track.lib.get('textures', 'hex');
+      effectHex.uniforms['color'].value = this.extras.vignetteColor;
+      this.composers.game.addPass(effectHex);
+    }
+
+    // Converts the linear render-target chain to sRGB on the final screen output.
+    this.composers.game.addPass(new OutputPass());
   }
 
   createMesh(

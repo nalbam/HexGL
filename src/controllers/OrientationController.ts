@@ -66,7 +66,7 @@ export class OrientationController {
   private touchEnd(event: TouchEvent): boolean {
     if (!this.active) return false;
     for (const touch of Array.from(event.changedTouches)) {
-      if (typeof this.touchCallback === 'function') this.touchCallback(true, touch, event);
+      if (typeof this.touchCallback === 'function') this.touchCallback(false, touch, event);
     }
     this.touches = event.touches;
     return false;

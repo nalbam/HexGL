@@ -43,27 +43,30 @@ function init(controlType: number, quality: number, hud: number, godmode: number
   });
 }
 
-type Setting = [string, string[], number, number, string];
+// [name, labels, values (actual setting passed to HexGL), defaultIndex, currentIndex, prefix]
+type Setting = [string, string[], number[], number, number, string];
 
 const defaultControls = isTouchDevice() ? 1 : 0;
 
+// controlType values map to ShipControls: 0=keyboard, 1=touch, 3=gamepad.
 const s: Setting[] = [
-  ['controlType', ['KEYBOARD', 'TOUCH', 'LEAP MOTION CONTROLLER', 'GAMEPAD'], defaultControls, defaultControls, 'Controls: '],
-  ['quality', ['LOW', 'MID', 'HIGH', 'VERY HIGH'], 3, 3, 'Quality: '],
-  ['hud', ['OFF', 'ON'], 1, 1, 'HUD: '],
-  ['godmode', ['OFF', 'ON'], 0, 1, 'Godmode: '],
+  ['controlType', ['KEYBOARD', 'TOUCH', 'GAMEPAD'], [0, 1, 3], defaultControls, defaultControls, 'Controls: '],
+  ['quality', ['LOW', 'MID', 'HIGH', 'VERY HIGH'], [0, 1, 2, 3], 3, 3, 'Quality: '],
+  ['hud', ['OFF', 'ON'], [0, 1], 1, 1, 'HUD: '],
+  ['godmode', ['OFF', 'ON'], [0, 1], 0, 1, 'Godmode: '],
 ];
 
 for (const a of s) {
   const fromUrl = getURLParameter(a[0]);
-  a[3] = fromUrl != null ? parseInt(fromUrl, 10) : a[2];
+  const urlIndex = fromUrl != null ? a[2].indexOf(parseInt(fromUrl, 10)) : -1;
+  a[4] = urlIndex !== -1 ? urlIndex : a[3];
   const e = $('s-' + a[0]);
   const f = () => {
-    e.innerHTML = a[4] + a[1][a[3]];
+    e.innerHTML = a[5] + a[1][a[4]];
   };
   f();
   e.onclick = () => {
-    a[3] = (a[3] + 1) % a[1].length;
+    a[4] = (a[4] + 1) % a[1].length;
     f();
   };
 }
@@ -71,7 +74,7 @@ for (const a of s) {
 $('step-2').onclick = () => {
   $('step-2').style.display = 'none';
   $('step-3').style.display = 'block';
-  init(s[0][3], s[1][3], s[2][3], s[3][3]);
+  init(s[0][2][s[0][4]], s[1][2][s[1][4]], s[2][2][s[2][4]], s[3][2][s[3][4]]);
 };
 
 $('step-5').onclick = () => {
@@ -116,6 +119,6 @@ if (!hasWebGL()) {
   $('start').onclick = () => {
     $('step-1').style.display = 'none';
     $('step-2').style.display = 'block';
-    $('step-2').style.backgroundImage = 'url(css/help-' + s[0][3] + '.png)';
+    $('step-2').style.backgroundImage = 'url(css/help-' + s[0][2][s[0][4]] + '.png)';
   };
 }

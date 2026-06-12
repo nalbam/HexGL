@@ -67,6 +67,7 @@ export class Loader {
   }
 
   load(data: LoadManifest): void {
+    this.progress = { total: 0, remaining: 0, loaded: 0, finished: false };
     for (const k of LOADER_TYPES) {
       const group = (data as any)[k];
       if (group) {
@@ -136,19 +137,29 @@ export class Loader {
       url.replace('%1', 'pz'), url.replace('%1', 'nz'),
     ];
     this.updateState('texturesCube', name, false);
-    this.data.texturesCube[name] = this.cubeTextureLoader.load(urls, (tex) => {
-      tex.colorSpace = THREE.SRGBColorSpace;
-      this.updateState('texturesCube', name, true);
-    });
+    this.data.texturesCube[name] = this.cubeTextureLoader.load(
+      urls,
+      (tex) => {
+        tex.colorSpace = THREE.SRGBColorSpace;
+        this.updateState('texturesCube', name, true);
+      },
+      undefined,
+      () => this.errorCallback.call(this, name)
+    );
   }
 
   private loadGeometry(name: string, url: string): void {
     this.data.geometries[name] = null;
     this.updateState('geometries', name, false);
-    this.bufferGeometryLoader.load(url, (geometry) => {
-      this.data.geometries[name] = geometry;
-      this.updateState('geometries', name, true);
-    });
+    this.bufferGeometryLoader.load(
+      url,
+      (geometry) => {
+        this.data.geometries[name] = geometry;
+        this.updateState('geometries', name, true);
+      },
+      undefined,
+      () => this.errorCallback.call(this, name)
+    );
   }
 
   private loadAnalyser(name: string, url: string): void {
@@ -162,6 +173,7 @@ export class Loader {
     this.updateState('images', name, false);
     const e = new Image();
     e.onload = () => this.updateState('images', name, true);
+    e.onerror = () => this.errorCallback.call(this, name);
     e.crossOrigin = 'anonymous';
     e.src = url;
     this.data.images[name] = e;
@@ -171,7 +183,7 @@ export class Loader {
     this.updateState('sounds', name, false);
     Audio.addSound(src, name, loop, () => {
       this.updateState('sounds', name, true);
-    }, usePanner);
+    }, usePanner, () => this.errorCallback.call(this, name));
     this.data.sounds[name] = {
       play: () => Audio.play(name),
       stop: () => Audio.stop(name),

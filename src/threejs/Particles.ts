@@ -6,6 +6,11 @@
  */
 import * as THREE from 'three';
 
+// Shared scratch vectors — update()/emit() run on a single thread per frame.
+const _df = new THREE.Vector3();
+const _dv = new THREE.Vector3();
+const _rand = new THREE.Vector3();
+
 export interface ParticlesOptions {
   max?: number;
   spawnRate?: number;
@@ -146,14 +151,15 @@ export class Particles {
     }
   }
 
+  /** Returns a shared scratch vector — consume the result before the next call. */
   private randomVector(): THREE.Vector3 {
-    return new THREE.Vector3(Math.random() * 2 - 1, Math.random() * 2 - 1, Math.random() * 2 - 1);
+    return _rand.set(Math.random() * 2 - 1, Math.random() * 2 - 1, Math.random() * 2 - 1);
   }
 
   /** Updates particles (call in a RAF loop). dt ~1.0 */
   update(dt: number): void {
-    const df = new THREE.Vector3();
-    const dv = new THREE.Vector3();
+    const df = _df;
+    const dv = _dv;
 
     for (let i = 0; i < this.buffer.length; ++i) {
       const p = this.buffer[i];

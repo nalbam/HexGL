@@ -42,7 +42,7 @@ export class RaceData {
     } else if (this.rateState == this.rate) {
       this.rateState = 0;
     }
-    this.rate++;
+    this.rateState++;
   }
 
   applyInterpolated(time: number): void {

@@ -256,7 +256,9 @@ export const Cityscape: TrackDef = {
     if (quality > 2) {
       sun.castShadow = true;
       sun.shadow.camera.near = 50;
-      sun.shadow.camera.far = camera.far * 2;
+      // Tight far plane: the track fits in the ±3000 ortho box; the legacy
+      // camera.far * 2 (=120,000) wasted shadow-map precision and GPU time.
+      sun.shadow.camera.far = 12000;
       sun.shadow.camera.right = 3000;
       sun.shadow.camera.left = -3000;
       sun.shadow.camera.top = 3000;
@@ -290,10 +292,10 @@ export const Cityscape: TrackDef = {
     // SHIP CONTROLS
     const shipControls = new ShipControls(ctx);
     shipControls.collisionMap = lib.get('analysers', 'track.cityscape.collision');
-    shipControls.collisionPixelRatio = 2048.0 / 6000.0;
+    shipControls.collisionPixelRatio = this.pixelRatio;
     shipControls.collisionDetection = true;
     shipControls.heightMap = lib.get('analysers', 'track.cityscape.height');
-    shipControls.heightPixelRatio = 2048.0 / 6000.0;
+    shipControls.heightPixelRatio = this.pixelRatio;
     shipControls.heightBias = 4.0;
     shipControls.heightScale = 10.0;
     shipControls.control(ship);

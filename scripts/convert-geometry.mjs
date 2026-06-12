@@ -18,7 +18,7 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const SRC = join(ROOT, 'geometries.src');
 const OUT = join(ROOT, 'public', 'geometries');
 
-// Cityscape manifest models (edge/track.js is dead — excluded).
+// Cityscape manifest models.
 const MODELS = [
   'bonus/base/base.js',
   'booster/booster.js',

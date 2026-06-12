@@ -114,11 +114,9 @@ export class ShipControls {
   touchController: TouchController | null = null;
   orientationController: OrientationController | null = null;
   gamepadController: GamepadController | null = null;
-  leapController: any = null;
-  leapBridge: any = null;
-  leapInfo: HTMLElement | null = null;
 
   private tmpMatrix = new THREE.Matrix4();
+  private tmpCollisionPos = new THREE.Vector3();
 
   constructor(ctx: ShipControlsContext) {
     const self = this;
@@ -149,8 +147,6 @@ export class ShipControls {
         self.key.left = controller.lstickx < -0.1;
         self.key.right = controller.lstickx > 0.1;
       });
-    } else if (ctx.controlType == 2) {
-      this.initLeap();
     }
 
     const onKeyDown = (event: KeyboardEvent) => {
@@ -180,49 +176,6 @@ export class ShipControls {
 
     domElement.addEventListener('keydown', onKeyDown as EventListener, false);
     domElement.addEventListener('keyup', onKeyUp as EventListener, false);
-  }
-
-  private initLeap(): void {
-    const Leap = (window as any).Leap;
-    if (Leap == null) throw new Error('Unable to reach LeapJS!');
-
-    const leapInfo = (this.leapInfo = document.getElementById('leapinfo'));
-    let isServerConnected = false;
-    const lb = (this.leapBridge = { isConnected: true, hasHands: false, palmNormal: [0, 0, 0] });
-
-    const updateInfo = () => {
-      if (!leapInfo) return;
-      if (!isServerConnected) {
-        leapInfo.innerHTML = 'Waiting for the Leap Motion Controller server...';
-        leapInfo.style.display = 'block';
-      } else if (lb.isConnected && lb.hasHands) {
-        leapInfo.style.display = 'none';
-      } else if (!lb.isConnected) {
-        leapInfo.innerHTML = 'Please connect your Leap Motion Controller.';
-        leapInfo.style.display = 'block';
-      } else if (!lb.hasHands) {
-        leapInfo.innerHTML = 'Put your hand over the Leap Motion Controller to play.';
-        leapInfo.style.display = 'block';
-      }
-    };
-    updateInfo();
-
-    const lc = (this.leapController = new Leap.Controller({ enableGestures: false }));
-    lc.on('connect', () => { isServerConnected = true; updateInfo(); });
-    lc.on('deviceConnected', () => { lb.isConnected = true; updateInfo(); });
-    lc.on('deviceDisconnected', () => { lb.isConnected = false; updateInfo(); });
-    lc.on('frame', (frame: any) => {
-      if (!lb.isConnected) return;
-      const hand = frame.hands[0];
-      if (typeof hand === 'undefined') {
-        if (lb.hasHands) { lb.hasHands = false; updateInfo(); }
-        lb.palmNormal = [0, 0, 0];
-      } else {
-        if (!lb.hasHands) { lb.hasHands = true; updateInfo(); }
-        lb.palmNormal = hand.palmNormal;
-      }
-    });
-    lc.connect();
   }
 
   control(threeMesh: THREE.Object3D): void {
@@ -259,10 +212,6 @@ export class ShipControls {
 
   terminate(): void {
     this.destroy();
-    if (this.leapController != null) {
-      this.leapController.disconnect();
-      if (this.leapInfo) this.leapInfo.style.display = 'none';
-    }
   }
 
   destroy(): void {
@@ -289,7 +238,15 @@ export class ShipControls {
 
   update(dt: number): void {
     if (this.falling) {
-      this.mesh!.position.add(this.fallVector);
+      // matrixAutoUpdate is false on the mesh, so the fall must go through the
+      // dummy matrix -> applyMatrix4 path to be visible on screen.
+      this.dummy.position.add(this.fallVector);
+      this.dummy.matrix.compose(this.dummy.position, this.dummy.quaternion, SCALE_ONE);
+      if (this.mesh != null) {
+        this.mesh.matrix.identity();
+        this.mesh.applyMatrix4(this.dummy.matrix);
+        this.mesh.updateMatrixWorld(true);
+      }
       return;
     }
 
@@ -300,12 +257,6 @@ export class ShipControls {
 
     let rollAmount = 0.0;
     let angularAmount = 0.0;
-    let yawLeap = 0.0;
-
-    if (this.leapBridge != null && this.leapBridge.hasHands) {
-      rollAmount -= this.leapBridge.palmNormal[0] * 3.5 * this.rollAngle;
-      yawLeap = -this.leapBridge.palmNormal[2] * 0.6;
-    }
 
     if (this.active) {
       if (this.touchController != null) {
@@ -317,9 +268,6 @@ export class ShipControls {
       } else if (this.gamepadController != null && this.gamepadController.updateAvailable()) {
         angularAmount -= this.gamepadController.lstickx * this.angularSpeed * dt;
         rollAmount += this.gamepadController.lstickx * this.rollAngle;
-      } else if (this.leapBridge != null && this.leapBridge.hasHands) {
-        angularAmount += this.leapBridge.palmNormal[0] * 2 * this.angularSpeed * dt;
-        this.speed += Math.max(0.0, 0.5 + this.leapBridge.palmNormal[2]) * 3 * this.thrust * dt;
       } else {
         if (this.key.left) {
           angularAmount += this.angularSpeed * dt;
@@ -397,7 +345,7 @@ export class ShipControls {
       this.mesh.matrix.identity();
 
       // Gradient (mesh only, no dummy physics impact)
-      const gradientDelta = (this.gradientTarget - (yawLeap + this.gradient)) * this.gradientLerp;
+      const gradientDelta = (this.gradientTarget - this.gradient) * this.gradientLerp;
       if (Math.abs(gradientDelta) > this.epsilon) this.gradient += gradientDelta;
       if (Math.abs(this.gradient) > this.epsilon) {
         this.gradientAxis.set(1, 0, 0);
@@ -497,7 +445,7 @@ export class ShipControls {
 
     const x = Math.round(this.collisionMap.pixels!.width / 2 + this.dummy.position.x * this.collisionPixelRatio);
     const z = Math.round(this.collisionMap.pixels!.height / 2 + this.dummy.position.z * this.collisionPixelRatio);
-    const pos = new THREE.Vector3(x, 0, z);
+    const pos = this.tmpCollisionPos.set(x, 0, z);
 
     const collision = this.collisionMap.getPixelBilinear(x, z);
 

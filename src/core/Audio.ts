@@ -19,7 +19,7 @@ interface AudioModule {
   posMultipler: number;
   init(): void;
   unlock(): void;
-  addSound(src: string, id: string, loop: boolean, callback: () => void, usePanner?: boolean): void;
+  addSound(src: string, id: string, loop: boolean, callback: () => void, usePanner?: boolean, onError?: () => void): void;
   play(id: string): void;
   stop(id: string): void;
   volume(id: string, volume: number): void;
@@ -34,6 +34,7 @@ export const Audio: AudioModule = {
   posMultipler: 1.5,
 
   init() {
+    if (Audio._ctx) return;
     const Ctx = window.AudioContext || (window as any).webkitAudioContext;
     if (Ctx) {
       Audio._ctx = new Ctx();
@@ -62,7 +63,7 @@ export const Audio: AudioModule = {
     }
   },
 
-  addSound(src, id, loop, callback, usePanner) {
+  addSound(src, id, loop, callback, usePanner, onError) {
     const ctx = Audio._ctx;
     let audio: any = new (window as any).Audio();
 
@@ -87,8 +88,12 @@ export const Audio: AudioModule = {
           },
           (e) => {
             console.error('Audio decode failed!', e);
+            if (onError) onError();
           }
         );
+      };
+      xhr.onerror = () => {
+        if (onError) onError();
       };
 
       xhr.open('GET', src, true);
@@ -166,11 +171,12 @@ export const Audio: AudioModule = {
   setListenerPos(vec) {
     if (Audio._ctx) {
       const panner = Audio._panner!;
-      const vec2 = vec.normalize();
+      // Normalize on a copy — the caller's vector must not be mutated.
+      const len = Math.sqrt(vec.x * vec.x + vec.y * vec.y + vec.z * vec.z) || 1;
       panner.setPosition(
-        vec2.x * Audio.posMultipler,
-        vec2.y * Audio.posMultipler,
-        vec2.z * Audio.posMultipler
+        (vec.x / len) * Audio.posMultipler,
+        (vec.y / len) * Audio.posMultipler,
+        (vec.z / len) * Audio.posMultipler
       );
     }
   },
